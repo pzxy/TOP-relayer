@@ -107,7 +107,7 @@ func (relayer *Eth2TopRelayerV2) Init(cfg *config.Relayer, listenUrl []string, p
 	return nil
 }
 
-func (relayer *Eth2TopRelayerV2) StartRelayer(wg *sync.WaitGroup) error {
+func (relayer *Eth2TopRelayerV2) StartRelayer2(wg *sync.WaitGroup) error {
 	logger.Info("Start Eth2TopRelayerV2")
 	go func() {
 		defer wg.Done()
@@ -359,23 +359,31 @@ func (relayer *Eth2TopRelayerV2) txOption(packData []byte) (*bind.TransactOpts, 
 	}, nil
 }
 
-func (relayer *Eth2TopRelayerV2) submitHeaders() error {
+func (relayer *Eth2TopRelayerV2) buildEthHeader() ([]*types.Header, error) {
 	lastFinalizedBlockNumber, err := relayer.callerSession.LastBlockNumber()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	currentBlockNumber, err := relayer.getMaxBlockNumber()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	logger.Info("Eth2TopRelayerV2 lastBlockNumberOnTop Finalized:%v, Tail:%v", lastFinalizedBlockNumber, currentBlockNumber+1)
 	minBlockNumberInBatch := math.Max(lastFinalizedBlockNumber+1, currentBlockNumber-beaconrpc.HEADER_BATCH_SIZE+1)
 	headers, err := relayer.getExecutionBlocksBetweenByNumber(minBlockNumberInBatch, currentBlockNumber)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	logger.Info("Eth2TopRelayerV2 submitHeaders len: %v", len(headers))
 	slice.Reverse(headers)
+	return headers, nil
+}
+
+func (relayer *Eth2TopRelayerV2) submitHeaders() error {
+	headers, err := relayer.buildEthHeader()
+	if err != nil {
+		return err
+	}
 	if err = relayer.submitEthHeader(headers); err != nil {
 		return err
 	}

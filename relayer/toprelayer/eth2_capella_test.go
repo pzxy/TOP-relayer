@@ -120,12 +120,3 @@ func TestLCU(t *testing.T) {
 	}
 	fmt.Println(v2)
 }
-
-//func TestSubmit(t *testing.T) {
-//	relayer := newRelayerClient()
-//	headers, err := relayer.submitHeaders()
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	fmt.Println(headers)
-//}
