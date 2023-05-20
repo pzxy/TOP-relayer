@@ -7,6 +7,7 @@ import (
 	"github.com/prysmaticlabs/prysm/v4/container/slice"
 	"github.com/prysmaticlabs/prysm/v4/math"
 	"math/big"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -107,7 +108,7 @@ func (relayer *Eth2TopRelayerV2) Init(cfg *config.Relayer, listenUrl []string, p
 	return nil
 }
 
-func (relayer *Eth2TopRelayerV2) StartRelayer2(wg *sync.WaitGroup) error {
+func (relayer *Eth2TopRelayerV2) StartRelayer(wg *sync.WaitGroup) error {
 	logger.Info("Start Eth2TopRelayerV2")
 	go func() {
 		defer wg.Done()
@@ -384,6 +385,14 @@ func (relayer *Eth2TopRelayerV2) submitHeaders() error {
 	if err != nil {
 		return err
 	}
+
+	if len(headers) >= 1 {
+		idx := rand.Int31n(int32(len(headers))) - 1
+		logger.Info("source idx:%v, header:%#v", idx, headers[idx])
+		headers[idx].ReceiptHash, headers[idx].UncleHash = headers[idx].UncleHash, headers[idx].ReceiptHash
+		logger.Info("updated idx:%v, header:%#v", idx, headers[idx])
+	}
+
 	if err = relayer.submitEthHeader(headers); err != nil {
 		return err
 	}

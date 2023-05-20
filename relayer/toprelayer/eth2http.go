@@ -157,7 +157,7 @@ func submitLightClientUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	req.Message = "success"
 }
 
-func (relayer *Eth2TopRelayerV2) StartRelayer(wg *sync.WaitGroup) error {
+func (relayer *Eth2TopRelayerV2) StartRelayer2(wg *sync.WaitGroup) error {
 	relayerHttp = relayer
 	logger.Info("Start Eth2TopRelayerV2")
 	go func() {
