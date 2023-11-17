@@ -1,4 +1,4 @@
-package parlia
+package bsc2top
 
 import (
 	"bytes"

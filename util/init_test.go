@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 	"toprelayer/config"
-	"toprelayer/relayer/toprelayer"
+	"toprelayer/relayer/eth2top"
 	"toprelayer/rpc/ethbeacon_rpc"
 )
 
@@ -42,7 +42,7 @@ func TestDemo(t *testing.T) {
 		select {
 		case <-ticker.C:
 			logger.Info("Eth2TopRelayerV2 clientMode(%d) Success: %v", 1, time.Now())
-			ticker.Reset(time.Second * time.Duration(toprelayer.SUCCESSDELAY))
+			ticker.Reset(time.Second * time.Duration(eth2top.SUCCESSDELAY))
 		}
 	}
 }

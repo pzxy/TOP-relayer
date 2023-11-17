@@ -1,4 +1,4 @@
-package toprelayer
+package heco2top
 
 import (
 	"context"
@@ -14,7 +14,9 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+const defaultPass = "asd123"
 const hecoUrl = "https://http-mainnet.hecochain.com"
+const ethUrl = "https://ropsten.infura.io/v3/fb2a09e82a234971ad84203e6f75990e"
 
 func TestGetHecoInitData(t *testing.T) {
 	ethclient, err := ethclient.Dial(hecoUrl)

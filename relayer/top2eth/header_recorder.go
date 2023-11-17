@@ -1,7 +1,7 @@
 //go:build normal
 // +build normal
 
-package crosschainrelayer
+package top2eth
 
 import (
 	"toprelayer/util"

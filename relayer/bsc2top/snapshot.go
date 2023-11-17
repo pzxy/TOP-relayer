@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package parlia
+package bsc2top
 
 import (
 	"bytes"
@@ -243,13 +243,13 @@ func ParseValidators(validatorsBytes []byte) ([]common.Address, error) {
 }
 
 type SnapshotOut struct {
-	Header        []byte
-	ValidatorsNum uint64
-	Validators    [][]byte
+	Header            []byte
+	ValidatorsNum     uint64
+	Validators        [][]byte
 	LastValidatorsNum uint64
 	LastValidators    [][]byte
-	RecentsNum    uint64
-	Recents       [][]byte
+	RecentsNum        uint64
+	Recents           [][]byte
 }
 
 func encodeSnapshot(header *types.Header, snap *Snapshot) ([]byte, error) {

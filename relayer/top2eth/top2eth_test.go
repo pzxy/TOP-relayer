@@ -1,4 +1,4 @@
-package crosschainrelayer
+package top2eth
 
 import (
 	"bytes"

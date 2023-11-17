@@ -1,4 +1,4 @@
-package toprelayer
+package mtree
 
 import (
 	"crypto/sha256"

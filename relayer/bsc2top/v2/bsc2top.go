@@ -1,4 +1,4 @@
-package toprelayer
+package v2
 
 import (
 	"context"
@@ -9,7 +9,8 @@ import (
 	"time"
 	"toprelayer/config"
 	ethbridge "toprelayer/contract/top/ethclient"
-	"toprelayer/relayer/toprelayer/parlia"
+	"toprelayer/relayer/bsc2top"
+	config2 "toprelayer/relayer/config"
 	"toprelayer/wallet"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,47 +21,43 @@ import (
 	"github.com/wonderivan/logger"
 )
 
-var (
-	bscClientContract = common.HexToAddress("0xff00000000000000000000000000000000000003")
-)
-
-type Bsc2TopRelayer struct {
+type Bsc2TopRelayerV2 struct {
 	wallet        *wallet.Wallet
 	ethsdk        *ethclient.Client
 	transactor    *ethbridge.EthClientTransactor
 	callerSession *ethbridge.EthClientCallerSession
-	parlia        *parlia.Parlia
+	parlia        *bsc2top.Parlia
 }
 
-func (relayer *Bsc2TopRelayer) Init(cfg *config.Relayer, listenUrl []string, pass string) error {
+func (relayer *Bsc2TopRelayerV2) Init(cfg *config.Relayer, listenUrl []string, pass string) error {
 	w, err := wallet.NewEthWallet(cfg.Url[0], listenUrl[0], cfg.KeyPath, pass)
 	if err != nil {
-		logger.Error("Bsc2TopRelayer NewWallet error:", err)
+		logger.Error("Bsc2TopRelayerV2 NewWallet error:", err)
 		return err
 	}
 	relayer.wallet = w
 
 	relayer.ethsdk, err = ethclient.Dial(listenUrl[0])
 	if err != nil {
-		logger.Error("Bsc2TopRelayer ethsdk create error:", listenUrl)
+		logger.Error("Bsc2TopRelayerV2 ethsdk create error:", listenUrl)
 		return err
 	}
 
 	topethlient, err := ethclient.Dial(cfg.Url[0])
 	if err != nil {
-		logger.Error("Bsc2TopRelayer new topethlient error:", err)
+		logger.Error("Bsc2TopRelayerV2 new topethlient error:", err)
 		return err
 	}
-	relayer.transactor, err = ethbridge.NewEthClientTransactor(bscClientContract, topethlient)
+	relayer.transactor, err = ethbridge.NewEthClientTransactor(bsc2top.BSCClientContract, topethlient)
 	if err != nil {
-		logger.Error("Bsc2TopRelayer NewEthClientTransactor error:", err)
+		logger.Error("Bsc2TopRelayerV2 NewEthClientTransactor error:", err)
 		return err
 	}
 
 	relayer.callerSession = new(ethbridge.EthClientCallerSession)
-	relayer.callerSession.Contract, err = ethbridge.NewEthClientCaller(bscClientContract, topethlient)
+	relayer.callerSession.Contract, err = ethbridge.NewEthClientCaller(bsc2top.BSCClientContract, topethlient)
 	if err != nil {
-		logger.Error("Bsc2TopRelayer NewEthClientCaller error:", err)
+		logger.Error("Bsc2TopRelayerV2 NewEthClientCaller error:", err)
 		return err
 	}
 	relayer.callerSession.CallOpts = bind.CallOpts{
@@ -70,30 +67,30 @@ func (relayer *Bsc2TopRelayer) Init(cfg *config.Relayer, listenUrl []string, pas
 		Context:     context.Background(),
 	}
 
-	relayer.parlia = parlia.New(relayer.ethsdk)
+	relayer.parlia = bsc2top.New(relayer.ethsdk)
 
 	return nil
 }
 
-func (et *Bsc2TopRelayer) submitEthHeader(header []byte) error {
+func (et *Bsc2TopRelayerV2) submitEthHeader(header []byte) error {
 	nonce, err := et.wallet.NonceAt(context.Background(), et.wallet.Address(), nil)
 	if err != nil {
-		logger.Error("Bsc2TopRelayer NonceAt error:", err)
+		logger.Error("Bsc2TopRelayerV2 NonceAt error:", err)
 		return err
 	}
 	gaspric, err := et.wallet.SuggestGasPrice(context.Background())
 	if err != nil {
-		logger.Error("Bsc2TopRelayer SuggestGasPrice error:", err)
+		logger.Error("Bsc2TopRelayerV2 SuggestGasPrice error:", err)
 		return err
 	}
 	packHeader, err := ethbridge.PackSyncParam(header)
 	if err != nil {
-		logger.Error("Bsc2TopRelayer PackSyncParam error:", err)
+		logger.Error("Bsc2TopRelayerV2 PackSyncParam error:", err)
 		return err
 	}
-	gaslimit, err := et.wallet.EstimateGas(context.Background(), &bscClientContract, packHeader)
+	gaslimit, err := et.wallet.EstimateGas(context.Background(), &bsc2top.BSCClientContract, packHeader)
 	if err != nil {
-		logger.Error("Bsc2TopRelayer EstimateGas error:", err)
+		logger.Error("Bsc2TopRelayerV2 EstimateGas error:", err)
 		return err
 	}
 	//must init ops as bellow
@@ -109,16 +106,16 @@ func (et *Bsc2TopRelayer) submitEthHeader(header []byte) error {
 	}
 	sigTx, err := et.transactor.Sync(ops, header)
 	if err != nil {
-		logger.Error("Bsc2TopRelayer sync error:", err)
+		logger.Error("Bsc2TopRelayerV2 sync error:", err)
 		return err
 	}
 
-	logger.Info("Bsc2TopRelayer tx info, account[%v] nonce:%v,capfee:%v,hash:%v,size:%v", et.wallet.Address(), nonce, gaspric, sigTx.Hash(), len(header))
+	logger.Info("Bsc2TopRelayerV2 tx info, account[%v] nonce:%v,capfee:%v,hash:%v,size:%v", et.wallet.Address(), nonce, gaspric, sigTx.Hash(), len(header))
 	return nil
 }
 
-//callback function to sign tx before send.
-func (et *Bsc2TopRelayer) signTransaction(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
+// callback function to sign tx before send.
+func (et *Bsc2TopRelayerV2) signTransaction(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
 	acc := et.wallet.Address()
 	if strings.EqualFold(acc.Hex(), addr.Hex()) {
 		stx, err := et.wallet.SignTx(tx)
@@ -130,39 +127,39 @@ func (et *Bsc2TopRelayer) signTransaction(addr common.Address, tx *types.Transac
 	return nil, fmt.Errorf("TopRelayer address:%v not available", addr)
 }
 
-func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
-	logger.Info("Bsc2TopRelayer start... subBatch: %v certaintyBlocks: %v", BATCH_NUM, CONFIRM_NUM)
+func (et *Bsc2TopRelayerV2) StartRelayer(wg *sync.WaitGroup) error {
+	logger.Info("Bsc2TopRelayerV2 start... subBatch: %v certaintyBlocks: %v", config2.BATCH_NUM, config2.CONFIRM_NUM)
 	defer wg.Done()
 
 	done := make(chan struct{})
 	defer close(done)
 
 	go func(done chan struct{}) {
-		timeoutDuration := time.Duration(FATALTIMEOUT) * time.Hour
+		timeoutDuration := time.Duration(config2.FATALTIMEOUT) * time.Hour
 		timeout := time.NewTimer(timeoutDuration)
 		defer timeout.Stop()
-		logger.Debug("Bsc2TopRelayer set timeout: %v hours", FATALTIMEOUT)
+		logger.Debug("Bsc2TopRelayerV2 set timeout: %v hours", config2.FATALTIMEOUT)
 		var delay time.Duration = time.Duration(1)
 
 		for {
 			destHeight, err := et.callerSession.GetHeight()
 			if err != nil {
-				logger.Error("Bsc2TopRelayer get height error:", err)
-				time.Sleep(time.Second * time.Duration(ERRDELAY))
+				logger.Error("Bsc2TopRelayerV2 get height error:", err)
+				time.Sleep(time.Second * time.Duration(config2.ERRDELAY))
 				continue
 			}
-			logger.Info("Bsc2TopRelayer check dest top Height:", destHeight)
+			logger.Info("Bsc2TopRelayerV2 check dest top Height:", destHeight)
 			if destHeight != 0 {
 				err = et.parlia.Init(destHeight)
 				if err == nil {
 					break
 				} else {
-					logger.Error("Bsc2TopRelayer parlia init error:", err)
+					logger.Error("Bsc2TopRelayerV2 parlia init error:", err)
 				}
 			} else {
-				logger.Info("Bsc2TopRelayer not init yet")
+				logger.Info("Bsc2TopRelayerV2 not init yet")
 			}
-			time.Sleep(time.Second * time.Duration(ERRDELAY))
+			time.Sleep(time.Second * time.Duration(config2.ERRDELAY))
 		}
 
 		for {
@@ -174,37 +171,37 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 			default:
 				destHeight, err := et.callerSession.GetHeight()
 				if err != nil {
-					logger.Error("Bsc2TopRelayer get height error:", err)
-					delay = time.Duration(ERRDELAY)
+					logger.Error("Bsc2TopRelayerV2 get height error:", err)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
-				logger.Info("Bsc2TopRelayer check dest top Height:", destHeight)
+				logger.Info("Bsc2TopRelayerV2 check dest top Height:", destHeight)
 				if destHeight == 0 {
 					if set := timeout.Reset(timeoutDuration); !set {
-						logger.Error("Bsc2TopRelayer reset timeout falied!")
-						delay = time.Duration(ERRDELAY)
+						logger.Error("Bsc2TopRelayerV2 reset timeout falied!")
+						delay = time.Duration(config2.ERRDELAY)
 						break
 					}
-					logger.Info("Bsc2TopRelayer not init yet")
-					delay = time.Duration(ERRDELAY)
+					logger.Info("Bsc2TopRelayerV2 not init yet")
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 				srcHeight, err := et.ethsdk.BlockNumber(context.Background())
 				if err != nil {
-					logger.Error("Bsc2TopRelayer get number error:", err)
-					delay = time.Duration(ERRDELAY)
+					logger.Error("Bsc2TopRelayerV2 get number error:", err)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
-				logger.Info("Bsc2TopRelayer check src eth Height:", srcHeight)
+				logger.Info("Bsc2TopRelayerV2 check src eth Height:", srcHeight)
 
-				if destHeight+1+CONFIRM_NUM > srcHeight {
+				if destHeight+1+config2.CONFIRM_NUM > srcHeight {
 					if set := timeout.Reset(timeoutDuration); !set {
-						logger.Error("Bsc2TopRelayer reset timeout falied!")
-						delay = time.Duration(ERRDELAY)
+						logger.Error("Bsc2TopRelayerV2 reset timeout falied!")
+						delay = time.Duration(config2.ERRDELAY)
 						break
 					}
-					logger.Debug("Bsc2TopRelayer waiting src eth update, delay")
-					delay = time.Duration(WAITDELAY)
+					logger.Debug("Bsc2TopRelayerV2 waiting src eth update, delay")
+					delay = time.Duration(config2.WAITDELAY)
 					break
 				}
 
@@ -213,14 +210,14 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				for {
 					header, err := et.ethsdk.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(destHeight))
 					if err != nil {
-						logger.Error("Bsc2TopRelayer HeaderByNumber error:", err)
+						logger.Error("Bsc2TopRelayerV2 HeaderByNumber error:", err)
 						checkError = true
 						break
 					}
 					// get known hashes with destHeight, mock now
 					isKnown, err := et.callerSession.IsKnown(header.Number, header.Hash())
 					if err != nil {
-						logger.Error("Bsc2TopRelayer IsKnown error:", err)
+						logger.Error("Bsc2TopRelayerV2 IsKnown error:", err)
 						checkError = true
 						break
 					}
@@ -233,34 +230,34 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 					}
 				}
 				if checkError {
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 
 				syncStartHeight := destHeight + 1
-				syncNum := srcHeight - CONFIRM_NUM - destHeight
-				if syncNum > BATCH_NUM {
-					syncNum = BATCH_NUM
+				syncNum := srcHeight - config2.CONFIRM_NUM - destHeight
+				if syncNum > config2.BATCH_NUM {
+					syncNum = config2.BATCH_NUM
 				}
 				syncEndHeight := syncStartHeight + syncNum - 1
-				logger.Info("Bsc2TopRelayer sync from %v to %v", syncStartHeight, syncEndHeight)
+				logger.Info("Bsc2TopRelayerV2 sync from %v to %v", syncStartHeight, syncEndHeight)
 
 				err = et.signAndSendTransactions(syncStartHeight, syncEndHeight)
 				if err != nil {
-					logger.Error("Bsc2TopRelayer signAndSendTransactions failed:", err)
-					delay = time.Duration(ERRDELAY)
+					logger.Error("Bsc2TopRelayerV2 signAndSendTransactions failed:", err)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 				if set := timeout.Reset(timeoutDuration); !set {
-					logger.Error("Bsc2TopRelayer reset timeout falied!")
-					delay = time.Duration(ERRDELAY)
+					logger.Error("Bsc2TopRelayerV2 reset timeout falied!")
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
-				logger.Info("Bsc2TopRelayer sync round finish")
-				if syncNum == BATCH_NUM {
-					delay = time.Duration(SUCCESSDELAY)
+				logger.Info("Bsc2TopRelayerV2 sync round finish")
+				if syncNum == config2.BATCH_NUM {
+					delay = time.Duration(config2.SUCCESSDELAY)
 				} else {
-					delay = time.Duration(WAITDELAY)
+					delay = time.Duration(config2.WAITDELAY)
 				}
 				// break
 			}
@@ -268,11 +265,11 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 	}(done)
 
 	<-done
-	logger.Error("Bsc2TopRelayer timeout")
+	logger.Error("Bsc2TopRelayerV2 timeout")
 	return nil
 }
 
-func (et *Bsc2TopRelayer) signAndSendTransactions(lo, hi uint64) error {
+func (et *Bsc2TopRelayerV2) signAndSendTransactions(lo, hi uint64) error {
 	var batch []byte
 	for h := lo; h <= hi; h++ {
 		header, err := et.ethsdk.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(h))
@@ -297,7 +294,7 @@ func (et *Bsc2TopRelayer) signAndSendTransactions(lo, hi uint64) error {
 	if len(batch) > 0 {
 		err := et.submitEthHeader(batch)
 		if err != nil {
-			logger.Error("Bsc2TopRelayer submitHeaders failed:", err)
+			logger.Error("Bsc2TopRelayerV2 submitHeaders failed:", err)
 			return err
 		}
 	}
@@ -305,10 +302,10 @@ func (et *Bsc2TopRelayer) signAndSendTransactions(lo, hi uint64) error {
 	return nil
 }
 
-func (et *Bsc2TopRelayer) GetInitData() ([]byte, error) {
+func (et *Bsc2TopRelayerV2) GetInitData() ([]byte, error) {
 	destHeight, err := et.callerSession.GetHeight()
 	if err != nil {
-		logger.Error("Bsc2TopRelayer get height error:", err)
+		logger.Error("Bsc2TopRelayerV2 get height error:", err)
 		return nil, err
 	}
 	height := (destHeight - 11) / 200 * 200
@@ -317,12 +314,12 @@ func (et *Bsc2TopRelayer) GetInitData() ([]byte, error) {
 	for i := height; i <= height+11; i++ {
 		header, err := et.ethsdk.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(i))
 		if err != nil {
-			logger.Error("Bsc2TopRelayer HeaderByNumber error:", err)
+			logger.Error("Bsc2TopRelayerV2 HeaderByNumber error:", err)
 			return nil, err
 		}
 		rlp_bytes, err := rlp.EncodeToBytes(header)
 		if err != nil {
-			logger.Error("Bsc2TopRelayer EncodeToBytes error:", err)
+			logger.Error("Bsc2TopRelayerV2 EncodeToBytes error:", err)
 			return nil, err
 		}
 		batch = append(batch, rlp_bytes...)

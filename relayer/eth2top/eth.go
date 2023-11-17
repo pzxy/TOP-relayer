@@ -1,4 +1,4 @@
-package toprelayer
+package eth2top
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 	"toprelayer/config"
 	ethbridge "toprelayer/contract/top/ethclient"
+	config2 "toprelayer/relayer/config"
 	"toprelayer/relayer/monitor"
 	"toprelayer/relayer/toprelayer/ethashapp"
 	"toprelayer/wallet"
@@ -19,16 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/wonderivan/logger"
-)
-
-const (
-	FATALTIMEOUT int64 = 24 //hours
-	SUCCESSDELAY int64 = 10
-	ERRDELAY     int64 = 10
-	WAITDELAY    int64 = 60
-
-	CONFIRM_NUM uint64 = 5
-	BATCH_NUM   uint64 = 5
 )
 
 var (
@@ -146,17 +137,17 @@ func (et *Eth2TopRelayer) signTransaction(addr common.Address, tx *types.Transac
 }
 
 func (et *Eth2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
-	logger.Info("Start Eth2TopRelayer, subBatch: %v certaintyBlocks: %v", BATCH_NUM, CONFIRM_NUM)
+	logger.Info("Start Eth2TopRelayer, subBatch: %v certaintyBlocks: %v", config2.BATCH_NUM, config2.CONFIRM_NUM)
 	defer wg.Done()
 
 	done := make(chan struct{})
 	defer close(done)
 
 	go func(done chan struct{}) {
-		timeoutDuration := time.Duration(FATALTIMEOUT) * time.Hour
+		timeoutDuration := time.Duration(config2.FATALTIMEOUT) * time.Hour
 		timeout := time.NewTimer(timeoutDuration)
 		defer timeout.Stop()
-		logger.Debug("Eth2TopRelayer set timeout: %v hours", FATALTIMEOUT)
+		logger.Debug("Eth2TopRelayer set timeout: %v hours", config2.FATALTIMEOUT)
 		var delay time.Duration = time.Duration(1)
 
 		for {
@@ -169,36 +160,36 @@ func (et *Eth2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				destHeight, err := et.callerSession.GetHeight()
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 				logger.Info("Eth2TopRelayer check dest top Height:", destHeight)
 				if destHeight == 0 {
 					if set := timeout.Reset(timeoutDuration); !set {
 						logger.Error("Eth2TopRelayer reset timeout falied!")
-						delay = time.Duration(ERRDELAY)
+						delay = time.Duration(config2.ERRDELAY)
 						break
 					}
 					logger.Info("Eth2TopRelayer not init yet")
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 				srcHeight, err := et.ethsdk.BlockNumber(context.Background())
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 				logger.Info("Eth2TopRelayer check src eth Height:", srcHeight)
 
-				if destHeight+1+CONFIRM_NUM > srcHeight {
+				if destHeight+1+config2.CONFIRM_NUM > srcHeight {
 					if set := timeout.Reset(timeoutDuration); !set {
 						logger.Error("Eth2TopRelayer reset timeout falied!")
-						delay = time.Duration(ERRDELAY)
+						delay = time.Duration(config2.ERRDELAY)
 						break
 					}
 					logger.Debug("Eth2TopRelayer waiting src eth update, delay")
-					delay = time.Duration(WAITDELAY)
+					delay = time.Duration(config2.WAITDELAY)
 					break
 				}
 				// check fork
@@ -226,14 +217,14 @@ func (et *Eth2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 					}
 				}
 				if checkError {
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 
 				syncStartHeight := destHeight + 1
-				syncNum := srcHeight - CONFIRM_NUM - destHeight
-				if syncNum > BATCH_NUM {
-					syncNum = BATCH_NUM
+				syncNum := srcHeight - config2.CONFIRM_NUM - destHeight
+				if syncNum > config2.BATCH_NUM {
+					syncNum = config2.BATCH_NUM
 				}
 				syncEndHeight := syncStartHeight + syncNum - 1
 				logger.Info("Eth2TopRelayer sync from %v to %v", syncStartHeight, syncEndHeight)
@@ -241,19 +232,19 @@ func (et *Eth2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				err = et.signAndSendTransactions(syncStartHeight, syncEndHeight)
 				if err != nil {
 					logger.Error("Eth2TopRelayer signAndSendTransactions failed:", err)
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 				if set := timeout.Reset(timeoutDuration); !set {
 					logger.Error("Eth2TopRelayer reset timeout falied!")
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(config2.ERRDELAY)
 					break
 				}
 				logger.Info("Eth2TopRelayer sync round finish")
-				if syncNum == BATCH_NUM {
-					delay = time.Duration(SUCCESSDELAY)
+				if syncNum == config2.BATCH_NUM {
+					delay = time.Duration(config2.SUCCESSDELAY)
 				} else {
-					delay = time.Duration(WAITDELAY)
+					delay = time.Duration(config2.WAITDELAY)
 				}
 				// break
 			}

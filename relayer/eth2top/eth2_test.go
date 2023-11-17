@@ -1,4 +1,4 @@
-package toprelayer
+package eth2top
 
 import (
 	"math/big"

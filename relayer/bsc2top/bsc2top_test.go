@@ -1,4 +1,4 @@
-package toprelayer
+package bsc2top
 
 import (
 	"context"
@@ -7,19 +7,17 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/status-im/keycard-go/hexutils"
 	"math/big"
 	"testing"
-	"toprelayer/config"
 	"toprelayer/relayer/toprelayer/congress"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/wonderivan/logger"
 )
 
+const hecoUrl = "https://http-mainnet.hecochain.com"
 const bscUrl = "https://bsc-dataseed4.binance.org"
 
 func TestGetBscInitData(t *testing.T) {
@@ -73,103 +71,103 @@ func TestGetBscSyncData(t *testing.T) {
 	logger.Debug(common.Bytes2Hex(batch))
 }
 
-func TestBscInit(t *testing.T) {
-	// changable
-	var start_height uint64 = 20250000
-	var sync_num uint64 = 12
-	var topUrl string = "http://192.168.30.200:8080"
-	var keyPath = "../../.relayer/wallet/top"
+//func TestBscInit(t *testing.T) {
+//	// changable
+//	var start_height uint64 = 20250000
+//	var sync_num uint64 = 12
+//	var topUrl string = "http://192.168.30.200:8080"
+//	var keyPath = "../../.relayer/wallet/top"
+//
+//	cfg := &config.Relayer{
+//		Url:     []string{topUrl},
+//		KeyPath: keyPath,
+//	}
+//	relayer := &heco2top.Heco2TopRelayer{}
+//	err := relayer.Init(cfg, []string{bscUrl}, eth2top.defaultPass)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	var batch []byte
+//	for h := start_height; h <= start_height+sync_num-1; h++ {
+//		header, err := relayer.ethsdk.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(h))
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//		rlp_bytes, err := rlp.EncodeToBytes(header)
+//		if err != nil {
+//			t.Fatal("EncodeToBytes: ", err)
+//		}
+//		batch = append(batch, rlp_bytes...)
+//	}
+//
+//	nonce, err := relayer.wallet.NonceAt(context.Background(), relayer.wallet.Address(), nil)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	gaspric, err := relayer.wallet.SuggestGasPrice(context.Background())
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	ops := &bind.TransactOpts{
+//		From:      relayer.wallet.Address(),
+//		Nonce:     big.NewInt(0).SetUint64(nonce),
+//		GasLimit:  500000,
+//		GasFeeCap: gaspric,
+//		GasTipCap: big.NewInt(0),
+//		Signer:    relayer.signTransaction,
+//		Context:   context.Background(),
+//		NoSend:    false,
+//	}
+//	tx, err := relayer.transactor.Init(ops, batch, string(""))
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	logger.Debug(tx.Hash())
+//}
 
-	cfg := &config.Relayer{
-		Url:     []string{topUrl},
-		KeyPath: keyPath,
-	}
-	relayer := &Heco2TopRelayer{}
-	err := relayer.Init(cfg, []string{bscUrl}, defaultPass)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var batch []byte
-	for h := start_height; h <= start_height+sync_num-1; h++ {
-		header, err := relayer.ethsdk.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(h))
-		if err != nil {
-			t.Fatal(err)
-		}
-		rlp_bytes, err := rlp.EncodeToBytes(header)
-		if err != nil {
-			t.Fatal("EncodeToBytes: ", err)
-		}
-		batch = append(batch, rlp_bytes...)
-	}
-
-	nonce, err := relayer.wallet.NonceAt(context.Background(), relayer.wallet.Address(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gaspric, err := relayer.wallet.SuggestGasPrice(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ops := &bind.TransactOpts{
-		From:      relayer.wallet.Address(),
-		Nonce:     big.NewInt(0).SetUint64(nonce),
-		GasLimit:  500000,
-		GasFeeCap: gaspric,
-		GasTipCap: big.NewInt(0),
-		Signer:    relayer.signTransaction,
-		Context:   context.Background(),
-		NoSend:    false,
-	}
-	tx, err := relayer.transactor.Init(ops, batch, string(""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	logger.Debug(tx.Hash())
-}
-
-func TestHecoDemo(t *testing.T) {
-	// top rpc地址
-	var topUrl string = "http://192.168.95.3:8080"
-	// keystore 和账户是对应的，这里我写的我的绝对路径 /Users/pzxy/Workspace/Top/TOP-relayer/.relayer/wallet/top
-	var keyPath = ".relayer/wallet/top"
-
-	cfg := &config.Relayer{
-		Url:     []string{topUrl},
-		KeyPath: keyPath,
-	}
-	relayer := &Heco2TopRelayer{}
-	err := relayer.Init(cfg, []string{hecoUrl}, defaultPass)
-	if err != nil {
-		t.Fatal(err)
-	}
-	nonce, err := relayer.wallet.NonceAt(context.Background(), relayer.wallet.Address(), nil)
-	if err != nil {
-		t.Error(err)
-	}
-	gaspric, err := relayer.wallet.SuggestGasPrice(context.Background())
-	if err != nil {
-		t.Error(err)
-	}
-	//must init ops as bellow
-	ops := &bind.TransactOpts{
-		From:      relayer.wallet.Address(),
-		Nonce:     big.NewInt(0).SetUint64(nonce),
-		GasLimit:  50000,
-		GasFeeCap: gaspric,
-		GasTipCap: big.NewInt(0),
-		Signer:    relayer.signTransaction,
-		Context:   context.Background(),
-		NoSend:    false,
-	}
-	// 将 1.初始化 获取到的数据填写到这里
-	hexData := `将 1.初始化 获取到的数据填写到这里`
-	initHeaders := hexutils.HexToBytes(hexData)
-	tx, err := relayer.transactor.Init(ops, initHeaders, "")
-	if err != nil {
-		t.Error(err)
-	}
-	t.Log(tx.Hash())
-}
+//func TestHecoDemo(t *testing.T) {
+//	// top rpc地址
+//	var topUrl string = "http://192.168.95.3:8080"
+//	// keystore 和账户是对应的，这里我写的我的绝对路径 /Users/pzxy/Workspace/Top/TOP-relayer/.relayer/wallet/top
+//	var keyPath = ".relayer/wallet/top"
+//
+//	cfg := &config.Relayer{
+//		Url:     []string{topUrl},
+//		KeyPath: keyPath,
+//	}
+//	relayer := &heco2top.Heco2TopRelayer{}
+//	err := relayer.Init(cfg, []string{hecoUrl}, eth2top.defaultPass)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	nonce, err := relayer.wallet.NonceAt(context.Background(), relayer.wallet.Address(), nil)
+//	if err != nil {
+//		t.Error(err)
+//	}
+//	gaspric, err := relayer.wallet.SuggestGasPrice(context.Background())
+//	if err != nil {
+//		t.Error(err)
+//	}
+//	//must init ops as bellow
+//	ops := &bind.TransactOpts{
+//		From:      relayer.wallet.Address(),
+//		Nonce:     big.NewInt(0).SetUint64(nonce),
+//		GasLimit:  50000,
+//		GasFeeCap: gaspric,
+//		GasTipCap: big.NewInt(0),
+//		Signer:    relayer.signTransaction,
+//		Context:   context.Background(),
+//		NoSend:    false,
+//	}
+//	// 将 1.初始化 获取到的数据填写到这里
+//	hexData := `将 1.初始化 获取到的数据填写到这里`
+//	initHeaders := hexutils.HexToBytes(hexData)
+//	tx, err := relayer.transactor.Init(ops, initHeaders, "")
+//	if err != nil {
+//		t.Error(err)
+//	}
+//	t.Log(tx.Hash())
+//}
 
 func TestETH(t *testing.T) {
 	// 连接到以太坊网络
@@ -217,7 +215,7 @@ func TestETH(t *testing.T) {
 	fmt.Printf("TxHash: %s\n", signedTx.Hash().Hex())
 }
 
-//{"id":3601684829,"jsonrpc":"2.0","method":"eth_estimateGas","params":[{"from":"0x8cb56de7306ece6d9cb0fa4c9ddb623b52b8d509","to":"0xb5964709bb7a9f28369d45172ddb3362b27e9cf3","data":"0xe488d078","value":"0x0"}]}
+// {"id":3601684829,"jsonrpc":"2.0","method":"eth_estimateGas","params":[{"from":"0x8cb56de7306ece6d9cb0fa4c9ddb623b52b8d509","to":"0xb5964709bb7a9f28369d45172ddb3362b27e9cf3","data":"0xe488d078","value":"0x0"}]}
 func TestTOPGas(t *testing.T) {
 	// 连接以太坊客户端
 	client, err := ethclient.Dial("http://192.168.95.3:8080")

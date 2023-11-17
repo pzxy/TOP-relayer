@@ -10,7 +10,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prysmaticlabs/fastssz v0.0.0-20220628121656-93dfe28febab
 	github.com/prysmaticlabs/prysm/v4 v4.0.3
-	github.com/status-im/keycard-go v0.2.0
 	github.com/urfave/cli/v2 v2.23.7
 	github.com/wonderivan/logger v1.0.0
 	golang.org/x/crypto v0.5.0

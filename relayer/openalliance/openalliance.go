@@ -1,4 +1,4 @@
-package toprelayer
+package openalliance
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"time"
 	"toprelayer/config"
 	"toprelayer/contract/top/openallianceclient"
+	"toprelayer/relayer/eth2top"
 	rpc "toprelayer/rpc/openalliance_rpc"
 	"toprelayer/wallet"
 
@@ -176,10 +177,10 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 	defer close(done)
 
 	go func(done chan struct{}) {
-		timeoutDuration := time.Duration(FATALTIMEOUT) * time.Hour
+		timeoutDuration := time.Duration(eth2top.FATALTIMEOUT) * time.Hour
 		timeout := time.NewTimer(timeoutDuration)
 		defer timeout.Stop()
-		logger.Debug("OpenAlliance2TopRelayer set timeout: %v hours", FATALTIMEOUT)
+		logger.Debug("OpenAlliance2TopRelayer set timeout: %v hours", eth2top.FATALTIMEOUT)
 		var delay time.Duration = time.Duration(1)
 
 		var lastSubHeight uint64 = 0
@@ -195,18 +196,18 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				init, err := relayer.callerSession.Initialized()
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(eth2top.ERRDELAY)
 					break
 				}
 				if !init {
 					logger.Info("OpenAlliance2TopRelayer not init yet")
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(eth2top.ERRDELAY)
 					break
 				}
 				destHeight, err := relayer.callerSession.MaxMainHeight()
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(eth2top.ERRDELAY)
 					break
 				}
 				logger.Info("OpenAlliance2TopRelayer check dest top Height:", destHeight)
@@ -223,7 +224,7 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				srcHeight, err := relayer.openAllianceRpc.BlockNumber(context.Background())
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(eth2top.ERRDELAY)
 					break
 				}
 				logger.Info("OpenAlliance2TopRelayer check src open alliance Height:", srcHeight)
@@ -233,11 +234,11 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				if destHeight+1 > srcHeight {
 					if set := timeout.Reset(timeoutDuration); !set {
 						logger.Error("OpenAlliance2TopRelayer reset timeout falied!")
-						delay = time.Duration(ERRDELAY)
+						delay = time.Duration(eth2top.ERRDELAY)
 						break
 					}
 					logger.Debug("OpenAlliance2TopRelayer waiting src eth update, delay")
-					delay = time.Duration(WAITDELAY)
+					delay = time.Duration(eth2top.WAITDELAY)
 					break
 				}
 
@@ -252,7 +253,7 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				subHeight, unsubHeight, err := relayer.signAndSendTransactions(syncStartHeight, syncEndHeight)
 				if err != nil {
 					logger.Error("OpenAlliance2TopRelayer signAndSendTransactions failed:", err)
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(eth2top.ERRDELAY)
 					break
 				}
 				if subHeight > lastSubHeight {
@@ -265,14 +266,14 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				}
 				if set := timeout.Reset(timeoutDuration); !set {
 					logger.Error("OpenAlliance2TopRelayer reset timeout falied!")
-					delay = time.Duration(ERRDELAY)
+					delay = time.Duration(eth2top.ERRDELAY)
 					break
 				}
 				logger.Info("OpenAlliance2TopRelayer sync round finish")
 				if syncNum == openAllianceBatchNum {
-					delay = time.Duration(SUCCESSDELAY)
+					delay = time.Duration(eth2top.SUCCESSDELAY)
 				} else {
-					delay = time.Duration(WAITDELAY)
+					delay = time.Duration(eth2top.WAITDELAY)
 				}
 			}
 		}
