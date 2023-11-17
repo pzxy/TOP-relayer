@@ -9,7 +9,6 @@ import (
 	"time"
 	"toprelayer/config"
 	ethbridge "toprelayer/contract/top/ethclient"
-	config2 "toprelayer/relayer/config"
 	"toprelayer/wallet"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -127,24 +126,24 @@ func (et *Bsc2TopRelayer) signTransaction(addr common.Address, tx *types.Transac
 }
 
 func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
-	logger.Info("Bsc2TopRelayer start... subBatch: %v certaintyBlocks: %v", config2.BATCH_NUM, config2.CONFIRM_NUM)
+	logger.Info("Bsc2TopRelayer start... subBatch: %v certaintyBlocks: %v", BATCH_NUM, CONFIRM_NUM)
 	defer wg.Done()
 
 	done := make(chan struct{})
 	defer close(done)
 
 	go func(done chan struct{}) {
-		timeoutDuration := time.Duration(config2.FATALTIMEOUT) * time.Hour
+		timeoutDuration := time.Duration(FATALTIMEOUT) * time.Hour
 		timeout := time.NewTimer(timeoutDuration)
 		defer timeout.Stop()
-		logger.Debug("Bsc2TopRelayer set timeout: %v hours", config2.FATALTIMEOUT)
+		logger.Debug("Bsc2TopRelayer set timeout: %v hours", FATALTIMEOUT)
 		var delay time.Duration = time.Duration(1)
 
 		for {
 			destHeight, err := et.callerSession.GetHeight()
 			if err != nil {
 				logger.Error("Bsc2TopRelayer get height error:", err)
-				time.Sleep(time.Second * time.Duration(config2.ERRDELAY))
+				time.Sleep(time.Second * time.Duration(ERRDELAY))
 				continue
 			}
 			logger.Info("Bsc2TopRelayer check dest top Height:", destHeight)
@@ -158,7 +157,7 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 			} else {
 				logger.Info("Bsc2TopRelayer not init yet")
 			}
-			time.Sleep(time.Second * time.Duration(config2.ERRDELAY))
+			time.Sleep(time.Second * time.Duration(ERRDELAY))
 		}
 
 		for {
@@ -171,36 +170,36 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				destHeight, err := et.callerSession.GetHeight()
 				if err != nil {
 					logger.Error("Bsc2TopRelayer get height error:", err)
-					delay = time.Duration(config2.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				logger.Info("Bsc2TopRelayer check dest top Height:", destHeight)
 				if destHeight == 0 {
 					if set := timeout.Reset(timeoutDuration); !set {
 						logger.Error("Bsc2TopRelayer reset timeout falied!")
-						delay = time.Duration(config2.ERRDELAY)
+						delay = time.Duration(ERRDELAY)
 						break
 					}
 					logger.Info("Bsc2TopRelayer not init yet")
-					delay = time.Duration(config2.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				srcHeight, err := et.ethsdk.BlockNumber(context.Background())
 				if err != nil {
 					logger.Error("Bsc2TopRelayer get number error:", err)
-					delay = time.Duration(config2.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				logger.Info("Bsc2TopRelayer check src eth Height:", srcHeight)
 
-				if destHeight+1+config2.CONFIRM_NUM > srcHeight {
+				if destHeight+1+CONFIRM_NUM > srcHeight {
 					if set := timeout.Reset(timeoutDuration); !set {
 						logger.Error("Bsc2TopRelayer reset timeout falied!")
-						delay = time.Duration(config2.ERRDELAY)
+						delay = time.Duration(ERRDELAY)
 						break
 					}
 					logger.Debug("Bsc2TopRelayer waiting src eth update, delay")
-					delay = time.Duration(config2.WAITDELAY)
+					delay = time.Duration(WAITDELAY)
 					break
 				}
 
@@ -229,14 +228,14 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 					}
 				}
 				if checkError {
-					delay = time.Duration(config2.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 
 				syncStartHeight := destHeight + 1
-				syncNum := srcHeight - config2.CONFIRM_NUM - destHeight
-				if syncNum > config2.BATCH_NUM {
-					syncNum = config2.BATCH_NUM
+				syncNum := srcHeight - CONFIRM_NUM - destHeight
+				if syncNum > BATCH_NUM {
+					syncNum = BATCH_NUM
 				}
 				syncEndHeight := syncStartHeight + syncNum - 1
 				logger.Info("Bsc2TopRelayer sync from %v to %v", syncStartHeight, syncEndHeight)
@@ -244,19 +243,19 @@ func (et *Bsc2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				err = et.signAndSendTransactions(syncStartHeight, syncEndHeight)
 				if err != nil {
 					logger.Error("Bsc2TopRelayer signAndSendTransactions failed:", err)
-					delay = time.Duration(config2.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				if set := timeout.Reset(timeoutDuration); !set {
 					logger.Error("Bsc2TopRelayer reset timeout falied!")
-					delay = time.Duration(config2.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				logger.Info("Bsc2TopRelayer sync round finish")
-				if syncNum == config2.BATCH_NUM {
-					delay = time.Duration(config2.SUCCESSDELAY)
+				if syncNum == BATCH_NUM {
+					delay = time.Duration(SUCCESSDELAY)
 				} else {
-					delay = time.Duration(config2.WAITDELAY)
+					delay = time.Duration(WAITDELAY)
 				}
 				// break
 			}

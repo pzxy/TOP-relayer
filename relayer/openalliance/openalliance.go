@@ -7,7 +7,6 @@ import (
 	"time"
 	"toprelayer/config"
 	"toprelayer/contract/top/openallianceclient"
-	"toprelayer/relayer/eth2top"
 	rpc "toprelayer/rpc/openalliance_rpc"
 	"toprelayer/wallet"
 
@@ -41,15 +40,15 @@ type OpenAlliance2TopRelayer struct {
 	callerSession   *openallianceclient.OpenAllianceClientCallerSession
 }
 
-func (relayer *OpenAlliance2TopRelayer) Init(cfg *config.Relayer, listenUrl []string, pass string) error {
+func (oa *OpenAlliance2TopRelayer) Init(cfg *config.Relayer, listenUrl []string, pass string) error {
 	w, err := wallet.NewTopWallet(cfg.Url[0], cfg.KeyPath, pass)
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer NewWallet error:", err)
 		return err
 	}
-	relayer.wallet = w
+	oa.wallet = w
 
-	relayer.openAllianceRpc, err = rpc.NewOpenAllianceRpc(listenUrl[0])
+	oa.openAllianceRpc, err = rpc.NewOpenAllianceRpc(listenUrl[0])
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer ethclient.Dial error:", err)
 		return err
@@ -61,34 +60,34 @@ func (relayer *OpenAlliance2TopRelayer) Init(cfg *config.Relayer, listenUrl []st
 		return err
 	}
 
-	relayer.transactor, err = openallianceclient.NewOpenAllianceClientTransactor(openAllianceClientSystemContract, topethlient)
+	oa.transactor, err = openallianceclient.NewOpenAllianceClientTransactor(openAllianceClientSystemContract, topethlient)
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer NewEthClientTransactor error:", err)
 		return err
 	}
 
-	relayer.callerSession = new(openallianceclient.OpenAllianceClientCallerSession)
-	relayer.callerSession.Contract, err = openallianceclient.NewOpenAllianceClientCaller(openAllianceClientSystemContract, topethlient)
+	oa.callerSession = new(openallianceclient.OpenAllianceClientCallerSession)
+	oa.callerSession.Contract, err = openallianceclient.NewOpenAllianceClientCaller(openAllianceClientSystemContract, topethlient)
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer NewEthClientCaller error:", err)
 		return err
 	}
-	relayer.callerSession.CallOpts = bind.CallOpts{
+	oa.callerSession.CallOpts = bind.CallOpts{
 		Pending:     false,
-		From:        relayer.wallet.Address(),
+		From:        oa.wallet.Address(),
 		BlockNumber: nil,
 		Context:     context.Background(),
 	}
 	return nil
 }
 
-func (relayer *OpenAlliance2TopRelayer) signAndSendTransactions(lo, hi uint64) (uint64, uint64, error) {
+func (oa *OpenAlliance2TopRelayer) signAndSendTransactions(lo, hi uint64) (uint64, uint64, error) {
 	var lastSubHeight uint64 = 0
 	var lastUnsubHeight uint64 = 0
 
 	var batchHeaders [][]byte
 	for h := lo; h <= hi; h++ {
-		header, err := relayer.openAllianceRpc.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(h))
+		header, err := oa.openAllianceRpc.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(h))
 		if err != nil {
 			logger.Error("OpenAlliance2TopRelayer HeaderByNumber error:", err)
 			break
@@ -114,7 +113,7 @@ func (relayer *OpenAlliance2TopRelayer) signAndSendTransactions(lo, hi uint64) (
 			logger.Error("OpenAlliance2TopRelayer EncodeHeaders failed:", err)
 			return 0, 0, err
 		}
-		err = relayer.submitEthHeader(data)
+		err = oa.submitEthHeader(data)
 		if err != nil {
 			logger.Error("OpenAlliance2TopRelayer submitHeaders failed:", err)
 			return 0, 0, err
@@ -123,14 +122,14 @@ func (relayer *OpenAlliance2TopRelayer) signAndSendTransactions(lo, hi uint64) (
 	return lastSubHeight, lastUnsubHeight, nil
 }
 
-func (relayer *OpenAlliance2TopRelayer) submitEthHeader(header []byte) error {
+func (oa *OpenAlliance2TopRelayer) submitEthHeader(header []byte) error {
 	logger.Info("CrossChainRelayer OpenAlliance2TopRelayer raw data:", common.Bytes2Hex(header))
-	nonce, err := relayer.wallet.NonceAt(context.Background(), relayer.wallet.Address(), nil)
+	nonce, err := oa.wallet.NonceAt(context.Background(), oa.wallet.Address(), nil)
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer GetNonce error:", err)
 		return err
 	}
-	gaspric, err := relayer.wallet.SuggestGasPrice(context.Background())
+	gaspric, err := oa.wallet.SuggestGasPrice(context.Background())
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer GasPrice error:", err)
 		return err
@@ -140,36 +139,36 @@ func (relayer *OpenAlliance2TopRelayer) submitEthHeader(header []byte) error {
 		logger.Error("OpenAlliance2TopRelayer PackSyncParam error:", err)
 		return err
 	}
-	gaslimit, err := relayer.wallet.EstimateGas(context.Background(), &openAllianceClientSystemContract, packHeader)
+	gaslimit, err := oa.wallet.EstimateGas(context.Background(), &openAllianceClientSystemContract, packHeader)
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer EstimateGas error:", err)
 		return err
 	}
 
 	ops := &bind.TransactOpts{
-		From:      relayer.wallet.Address(),
+		From:      oa.wallet.Address(),
 		Nonce:     big.NewInt(0).SetUint64(nonce),
 		GasLimit:  gaslimit,
 		GasFeeCap: gaspric,
 		GasTipCap: big.NewInt(0),
-		Signer:    relayer.signTransaction,
+		Signer:    oa.signTransaction,
 		Context:   context.Background(),
 		NoSend:    false,
 	}
-	sigTx, err := relayer.transactor.AddLightClientBlocks(ops, header)
+	sigTx, err := oa.transactor.AddLightClientBlocks(ops, header)
 	if err != nil {
 		logger.Error("OpenAlliance2TopRelayer sync error:", err)
 		return err
 	}
-	logger.Info("OpenAlliance2TopRelayer tx info, account[%v] nonce:%v,capfee:%v,hash:%v,size:%v", relayer.wallet.Address(), nonce, gaspric, sigTx.Hash(), len(header))
+	logger.Info("OpenAlliance2TopRelayer tx info, account[%v] nonce:%v,capfee:%v,hash:%v,size:%v", oa.wallet.Address(), nonce, gaspric, sigTx.Hash(), len(header))
 	return nil
 }
 
-func (relayer *OpenAlliance2TopRelayer) signTransaction(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
-	return relayer.wallet.SignTx(tx)
+func (oa *OpenAlliance2TopRelayer) signTransaction(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
+	return oa.wallet.SignTx(tx)
 }
 
-func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
+func (oa *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 	logger.Info("Start OpenAlliance2TopRelayer, subBatch: %v", openAllianceBatchNum)
 	defer wg.Done()
 
@@ -177,10 +176,10 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 	defer close(done)
 
 	go func(done chan struct{}) {
-		timeoutDuration := time.Duration(eth2top.FATALTIMEOUT) * time.Hour
+		timeoutDuration := time.Duration(FATALTIMEOUT) * time.Hour
 		timeout := time.NewTimer(timeoutDuration)
 		defer timeout.Stop()
-		logger.Debug("OpenAlliance2TopRelayer set timeout: %v hours", eth2top.FATALTIMEOUT)
+		logger.Debug("OpenAlliance2TopRelayer set timeout: %v hours", FATALTIMEOUT)
 		var delay time.Duration = time.Duration(1)
 
 		var lastSubHeight uint64 = 0
@@ -193,21 +192,21 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				done <- struct{}{}
 				return
 			default:
-				init, err := relayer.callerSession.Initialized()
+				init, err := oa.callerSession.Initialized()
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(eth2top.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				if !init {
 					logger.Info("OpenAlliance2TopRelayer not init yet")
-					delay = time.Duration(eth2top.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
-				destHeight, err := relayer.callerSession.MaxMainHeight()
+				destHeight, err := oa.callerSession.MaxMainHeight()
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(eth2top.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				logger.Info("OpenAlliance2TopRelayer check dest top Height:", destHeight)
@@ -221,10 +220,10 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				// 	delay = time.Duration(ERRDELAY)
 				// 	break
 				// }
-				srcHeight, err := relayer.openAllianceRpc.BlockNumber(context.Background())
+				srcHeight, err := oa.openAllianceRpc.BlockNumber(context.Background())
 				if err != nil {
 					logger.Error(err)
-					delay = time.Duration(eth2top.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				logger.Info("OpenAlliance2TopRelayer check src open alliance Height:", srcHeight)
@@ -234,11 +233,11 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				if destHeight+1 > srcHeight {
 					if set := timeout.Reset(timeoutDuration); !set {
 						logger.Error("OpenAlliance2TopRelayer reset timeout falied!")
-						delay = time.Duration(eth2top.ERRDELAY)
+						delay = time.Duration(ERRDELAY)
 						break
 					}
 					logger.Debug("OpenAlliance2TopRelayer waiting src eth update, delay")
-					delay = time.Duration(eth2top.WAITDELAY)
+					delay = time.Duration(WAITDELAY)
 					break
 				}
 
@@ -250,10 +249,10 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				syncEndHeight := syncStartHeight + syncNum - 1
 				logger.Info("OpenAlliance2TopRelayer sync from %v to %v", syncStartHeight, syncEndHeight)
 
-				subHeight, unsubHeight, err := relayer.signAndSendTransactions(syncStartHeight, syncEndHeight)
+				subHeight, unsubHeight, err := oa.signAndSendTransactions(syncStartHeight, syncEndHeight)
 				if err != nil {
 					logger.Error("OpenAlliance2TopRelayer signAndSendTransactions failed:", err)
-					delay = time.Duration(eth2top.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				if subHeight > lastSubHeight {
@@ -266,14 +265,14 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 				}
 				if set := timeout.Reset(timeoutDuration); !set {
 					logger.Error("OpenAlliance2TopRelayer reset timeout falied!")
-					delay = time.Duration(eth2top.ERRDELAY)
+					delay = time.Duration(ERRDELAY)
 					break
 				}
 				logger.Info("OpenAlliance2TopRelayer sync round finish")
 				if syncNum == openAllianceBatchNum {
-					delay = time.Duration(eth2top.SUCCESSDELAY)
+					delay = time.Duration(SUCCESSDELAY)
 				} else {
-					delay = time.Duration(eth2top.WAITDELAY)
+					delay = time.Duration(WAITDELAY)
 				}
 			}
 		}
@@ -284,6 +283,6 @@ func (relayer *OpenAlliance2TopRelayer) StartRelayer(wg *sync.WaitGroup) error {
 	return nil
 }
 
-func (relayer *OpenAlliance2TopRelayer) GetInitData() ([]byte, error) {
+func (oa *OpenAlliance2TopRelayer) GetInitData() ([]byte, error) {
 	return nil, nil
 }

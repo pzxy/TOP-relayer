@@ -1,4 +1,4 @@
-package config
+package openalliance
 
 const (
 	FATALTIMEOUT int64 = 24 //hours
