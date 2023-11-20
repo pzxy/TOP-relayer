@@ -1,4 +1,4 @@
-package bsc2top
+package bsc2topv2
 
 import (
 	"bytes"
