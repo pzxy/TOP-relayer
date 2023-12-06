@@ -991,7 +991,12 @@ func (relayer *Eth2TopRelayerV2) GetInitData() ([]byte, error) {
 	initParam.FinalizedBeaconHeader = finalizedHeader
 	initParam.NextSyncCommittee = lastUpdate.NextSyncCommitteeUpdate.NextSyncCommittee
 	initParam.CurrentSyncCommittee = prevUpdate.NextSyncCommittee
-
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ETH Data <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+	fmt.Printf("FinalizedExecutionHeader: %+v \n", *initParam.FinalizedExecutionHeader)
+	fmt.Printf("FinalizedBeaconHeader.Header: %+v \n", *initParam.FinalizedBeaconHeader.Header)
+	fmt.Printf("FinalizedBeaconHeader.BeaconBlockRoot: %+v \n", initParam.FinalizedBeaconHeader.BeaconBlockRoot)
+	fmt.Printf("FinalizedBeaconHeader.ExecutionBlockHash: %+v \n", initParam.FinalizedBeaconHeader.ExecutionBlockHash)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ETH Data <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	bytes, err := initParam.Encode()
 	if err != nil {
 		logger.Error("initParam.Encode error:", err)
