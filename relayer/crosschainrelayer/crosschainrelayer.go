@@ -137,7 +137,7 @@ func (te *CrossChainRelayer) submitTopHeader(headers []byte) error {
 		return err
 	}
 	if balance.Uint64() <= gaspric.Uint64()*gaslimit {
-		return fmt.Errorf("CrossChainRelayer %v account[%v] balance not enough:%v", te.name, te.wallet.Address(), balance.Uint64())
+		return fmt.Errorf("CrossChainRelayer %v account[%v] balance not enough:%v,gas:%v", te.name, te.wallet.Address(), balance.Uint64(), gaspric.Uint64()*gaslimit)
 	}
 
 	//must init ops as bellow
