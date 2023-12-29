@@ -64,7 +64,7 @@ func (relayer *Bsc2TopRelayerV2) Init(cfg *config.Relayer, listenUrl []string, p
 		Context:     context.Background(),
 	}
 
-	relayer.parlia = New(relayer.ethsdk)
+	//relayer.parlia = New(relayer.ethsdk)
 
 	return nil
 }
